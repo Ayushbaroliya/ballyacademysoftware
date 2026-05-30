@@ -12,7 +12,7 @@ const mockDb = {
     { id: "sharmabro_uid", coachId: "sharmabro_uid", name: "Sharma Coach", phone: "9999999999", specialization: "Spin Bowling", assignedBatchIds: ["Morning", "Evening"] }
   ],
   users: [
-    { id: "mock_admin", email: "admin@academy.com", name: "Mock Admin", role: "admin" },
+    { id: "mock_admin", email: "deeptisonkar34@gmail.com", name: "Hello Bally Sir", role: "admin" },
     { id: "coach_001", email: "coach1@academy.com", name: "Rajkumar Sharma", role: "coach" },
     { id: "coach_002", email: "coach2@academy.com", name: "Dinesh Lad", role: "coach" },
     { id: "sharmabro_uid", email: "sharmabro.27@gmail.com", name: "Sharma Coach", role: "coach" }
@@ -71,16 +71,26 @@ export const mockFirestore = {
 };
 
 export const mockAuth = {
-  currentUser: { uid: 'mock_admin', email: 'admin@academy.com', displayName: 'Mock Admin' },
+  currentUser: { uid: 'mock_admin', email: 'deeptisonkar34@gmail.com', displayName: 'Hello Bally Sir' },
   signInWithEmailAndPassword: async (email, password) => {
     console.log(`[Mock Auth] Signing in with: ${email}`);
-    return { user: { uid: 'mock_admin', email } };
+    if (email === 'deeptisonkar34@gmail.com' || email === 'deeptisonkar@ballyacademy.com') {
+      if (password === '12345@ballysir') {
+        return { user: { uid: 'mock_admin', email } };
+      }
+      throw new Error('Firebase: Error (auth/wrong-password).');
+    }
+    const user = mockDb.users.find(u => u.email === email);
+    if (user) {
+      return { user: { uid: user.id, email } };
+    }
+    throw new Error('Firebase: Error (auth/user-not-found).');
   },
   signOut: async () => {
     console.log('[Mock Auth] Signing out');
   },
   onAuthStateChanged: (callback) => {
-    callback({ uid: 'mock_admin', email: 'admin@academy.com' });
+    callback({ uid: 'mock_admin', email: 'deeptisonkar34@gmail.com' });
     return () => {};
   }
 };

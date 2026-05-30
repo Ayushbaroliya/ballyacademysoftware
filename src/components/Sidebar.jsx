@@ -31,7 +31,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
             <Trophy size={26} className="text-navy-900" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white leading-none">JABALI CRICKET</h1>
+            <h1 className="text-xl font-black text-white leading-none">BALLY ACADEMY</h1>
             <p className="text-[10px] text-accent font-bold tracking-[0.2em] mt-1">ACADEMY</p>
           </div>
         </div>

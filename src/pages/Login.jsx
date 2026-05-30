@@ -18,7 +18,11 @@ const Login = ({ onLogin }) => {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      let loginEmail = email.trim();
+      if (loginEmail.toLowerCase() === 'deeptisonkar') {
+        loginEmail = 'deeptisonkar@ballyacademy.com';
+      }
+      await login(loginEmail, password);
       onLogin();
     } catch (err) {
       const msg = err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
@@ -41,11 +45,11 @@ const Login = ({ onLogin }) => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm"
       >
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-20 h-20 bg-accent rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.3)] mb-4">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-20 h-20 bg-accent rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.3)] mb-4">
             <Trophy size={40} className="text-navy-900" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Jabali Cricket</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Bally Academy</h1>
           <p className="text-gray-400 mt-1">Academy Management System</p>
         </div>
 
@@ -63,8 +67,8 @@ const Login = ({ onLogin }) => {
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
               <input 
-                type="email" 
-                placeholder="Email Address"
+                type="text" 
+                placeholder="Email Address or ID"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-navy-800 border border-white/5 rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-accent/50 transition-colors"
@@ -89,7 +93,7 @@ const Login = ({ onLogin }) => {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 md:py-4 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg mt-2 text-sm md:text-base"
+              className="w-full bg-accent hover:bg-yellow-400 disabled:opacity-60 disabled:cursor-not-allowed text-navy-900 font-bold py-3.5 md:py-4 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg mt-2 text-sm md:text-base"
             >
               {loading ? (
                 <><Loader2 size={18} className="animate-spin" /> Signing In...</>

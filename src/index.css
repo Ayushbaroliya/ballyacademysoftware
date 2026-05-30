@@ -9,7 +9,7 @@
 
   color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #0F172A;
+  background-color: #000000;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -22,7 +22,7 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   overflow: hidden;
-  background: #0F172A;
+  background: #000000;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
@@ -36,14 +36,14 @@ body {
 }
 
 .glass-accent {
-  background: rgba(245, 158, 11, 0.05);
+  background: rgba(234, 179, 8, 0.05);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.1);
 }
 
 .glass-nav {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(10, 10, 10, 0.8);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -66,7 +66,7 @@ body {
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(245, 158, 11, 0.3);
+    background: rgba(234, 179, 8, 0.3);
   }
 }
 
@@ -83,7 +83,7 @@ body {
 /* Custom Gradients */
 .bg-gradient-premium {
   background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.1), transparent),
-              radial-gradient(circle at bottom left, rgba(30, 41, 59, 0.5), transparent);
+              radial-gradient(circle at bottom left, rgba(23, 23, 23, 0.5), transparent);
 }
 
 /* Bento Grid Utilities */
@@ -135,5 +135,5 @@ nav .overflow-x-auto::-webkit-scrollbar {
 
 /* Active tab dot glow (legacy, kept for compat) */
 .tab-dot-glow {
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.8);
 }

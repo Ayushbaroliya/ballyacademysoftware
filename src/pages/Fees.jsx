@@ -225,7 +225,7 @@ const Fees = () => {
   const handleExcelExport = () => {
     const dueActive = activeStudents.filter(s => calcPendingMonths(s) > 0);
     if (dueActive.length === 0) { alert('No due students found.'); return; }
-    exportData(formatDueFeesForExport(dueActive), 'Due_Fees_List_Jabali', 'xlsx');
+    exportData(formatDueFeesForExport(dueActive), 'Due_Fees_List_Bally', 'xlsx');
   };
 
   // ── Restore / Remove / Permanent Delete ────────────────────────────

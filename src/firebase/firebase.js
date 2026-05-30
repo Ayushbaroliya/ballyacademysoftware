@@ -1,40 +1,24 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { mockFirestore, mockAuth } from './mockService';
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyDVaQjtI4noDRFlx9i-P58dHfckdI4yB6Y",
+  authDomain: "ballicricket-7b685.firebaseapp.com",
+  projectId: "ballicricket-7b685",
+  storageBucket: "ballicricket-7b685.firebasestorage.app",
+  messagingSenderId: "422255784297",
+  appId: "1:422255784297:web:299c2fe30247dabdd14df8",
+  measurementId: "G-7P059Y7PLS"
 };
 
-const useMocks = !firebaseConfig.apiKey || firebaseConfig.apiKey === 'your_api_key_here' || import.meta.env.VITE_USE_MOCKS === 'true';
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-let app;
-let db;
-let auth;
-
-if (useMocks) {
-  console.warn("⚠️ Running in MOCK MODE. No data will be saved to the cloud.");
-  app = { name: '[MockApp]' };
-  db = mockFirestore;
-  auth = mockAuth;
-} else {
-  try {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    console.log("✅ Firebase initialized successfully.");
-  } catch (error) {
-    console.error("❌ Firebase initialization failed:", error);
-    db = mockFirestore;
-    auth = mockAuth;
-  }
-}
-
-export { db, auth, firebaseConfig };
+export { db, auth, firebaseConfig, analytics };
 export default app;

@@ -132,7 +132,7 @@ const Dashboard = ({ setActiveTab }) => {
       >
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">
-            {isUserAdmin ? 'Hello Jabali Sir 👋' : `Hey, ${displayName}! 👋`}
+            {isUserAdmin ? `Hello Bally Sir 👋` : `Hey, ${displayName}! 👋`}
           </h1>
           <p className="text-gray-400 text-[10px] md:text-sm uppercase tracking-wider">{todayLabel}</p>
           {isSunday && isUserAdmin && (

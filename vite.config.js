@@ -17,9 +17,9 @@ export default defineConfig({
       },
       includeAssets: ['favicon.svg', 'icons.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Jabali Cricket Academy ERP',
-        short_name: 'Jabali Cricket',
-        description: 'Management dashboard for Jabali Cricket Academy coaches and players',
+        name: 'Bally Academy ERP',
+        short_name: 'Bally Academy',
+        description: 'Management dashboard for Bally Academy coaches and players',
         theme_color: '#0F172A',
         background_color: '#0F172A',
         display: 'standalone',

@@ -121,7 +121,7 @@ export const generateWhatsAppDueList = (students) => {
 
   const total = dueStudents.reduce((sum, s) => sum + s.dueAmount, 0);
   const lines = [
-    '📋 *Jabali Cricket Academy — Pending Fees*',
+    '📋 *Bally Academy — Pending Fees*',
     `📅 Date: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`,
     '',
     ...dueStudents.map((s, i) => {

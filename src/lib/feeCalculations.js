@@ -1,6 +1,6 @@
 /**
  * feeCalculations.js
- * Core dynamic due calculation engine for Jabali Cricket Academy ERP.
+ * Core dynamic due calculation engine for Bally Academy ERP.
  * All calculations are done at runtime — nothing static stored in DB.
  */
 

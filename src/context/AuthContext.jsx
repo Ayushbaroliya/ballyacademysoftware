@@ -26,17 +26,22 @@ export const AuthProvider = ({ children }) => {
           // Auto-initialize roles for known emails if doc doesn't exist or is incorrect
           const email = firebaseUser.email;
           let roleToSet = null;
-          if (email === 'yuvrajparihar227@gmail.com' || email === 'ayushbaroliya5@gmail.com') {
+          if (email === 'deeptisonkar34@gmail.com' || email === 'deeptisonkar@ballyacademy.com') {
             roleToSet = 'admin';
           } else if (email === 'sharmabro.27@gmail.com') {
             roleToSet = 'coach';
           }
 
-          if (roleToSet && (!userDoc.exists() || userDoc.data().role !== roleToSet)) {
+          let expectedName = 'Sharma Coach';
+          if (roleToSet === 'admin') {
+            expectedName = 'Hello Bally Sir';
+          }
+
+          if (roleToSet && (!userDoc.exists() || userDoc.data().role !== roleToSet || userDoc.data().name !== expectedName)) {
             const userRef = doc(db, 'users', firebaseUser.uid);
             await setDoc(userRef, {
               email: email,
-              name: email === 'yuvrajparihar227@gmail.com' ? 'Jabali Sir' : (email === 'ayushbaroliya5@gmail.com' ? 'Ayush Baroliya' : 'Sharma Coach'),
+              name: expectedName,
               role: roleToSet
             }, { merge: true });
             

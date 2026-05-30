@@ -48,7 +48,7 @@ const Profile = ({ onLogout, setActiveTab }) => {
     <div className="pb-32 lg:pb-10 pt-8 px-6 h-full flex flex-col">
       <header className="flex flex-col items-center mb-10">
         <div className="relative mb-4">
-          <div className="w-24 h-24 rounded-[2rem] bg-accent p-1 shadow-[0_0_25px_rgba(245,158,11,0.2)]">
+          <div className="w-24 h-24 rounded-[2rem] bg-accent p-1 shadow-[0_0_25px_rgba(234,179,8,0.2)]">
             <div className="w-full h-full rounded-[1.8rem] bg-navy-900 overflow-hidden flex items-center justify-center">
               <Avatar src="" name={displayName} />
             </div>
@@ -60,7 +60,7 @@ const Profile = ({ onLogout, setActiveTab }) => {
         <h2 className="text-2xl font-bold text-white">{displayName}</h2>
         <p className="text-gray-500 text-sm flex items-center gap-1">
           <MapPin size={12} className="text-accent" />
-          {displayRole} • {user?.email || 'Jabali Cricket Academy'}
+          {displayRole} • {user?.email || 'Bally Academy'}
         </p>
         {role && (
           <span className={cn(
@@ -166,7 +166,7 @@ const Profile = ({ onLogout, setActiveTab }) => {
       </div>
 
       <div className="mt-10 text-center">
-        <p className="text-gray-600 text-[10px] uppercase tracking-tighter">Jabali Cricket Academy ERP v2.0 • Firebase</p>
+        <p className="text-gray-600 text-[10px] uppercase tracking-tighter">Bally Academy ERP v2.0 • Firebase</p>
       </div>
     </div>
   );

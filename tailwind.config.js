@@ -8,18 +8,18 @@ export default {
     extend: {
       colors: {
         navy: {
-          900: '#000000',
-          800: '#0a0a0a',
-          700: '#171717',
+          900: '#0a0a0a',
+          800: '#171717',
+          700: '#262626',
           950: '#000000',
         },
         accent: {
-          DEFAULT: '#22c55e',
-          glow: 'rgba(34, 197, 94, 0.3)',
+          DEFAULT: '#eab308',
+          glow: 'rgba(234, 179, 8, 0.3)',
         },
         orange: {
-          DEFAULT: '#F97316',
-          glow: 'rgba(249, 115, 22, 0.3)',
+          DEFAULT: '#eab308',
+          glow: 'rgba(234, 179, 8, 0.3)',
         }
       },
       animation: {
