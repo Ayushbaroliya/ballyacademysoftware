@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Safely get user role — returns 'none' if doc doesn't exist
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'none';
+    }
+
+    // Admin: authenticated + role == 'admin'
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // Coach: authenticated + role == 'coach' or 'admin'
+    function isCoach() {
+      return isAuthenticated() && (getUserRole() == 'coach' || getUserRole() == 'admin');
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Students collection (Admins and Coaches can manage and delete)
+    match /students/{studentId} {
+      allow read, create, update, delete: if isCoach();
+    }
+
+    // Coaches collection (Admins manage, coaches can view)
+    match /coaches/{coachId} {
+      allow read: if isCoach();
+      allow write: if isAdmin();
+    }
+
+    // Attendance (Admins and Coaches can view and mark)
+    match /attendance/{attendanceId} {
+      allow read, write: if isCoach();
+    }
+
+    // Payments / Fees (Admins and Coaches)
+    match /payments/{paymentId} {
+      allow read, write: if isCoach();
+    }
+
+    // Coach Attendance (Coaches can mark, coaches/admins can read)
+    match /coach_attendance/{attendanceId} {
+      allow read: if isCoach();
+      allow create: if (isCoach() && request.resource.data.coachId == request.auth.uid) || isAdmin();
+      allow update: if (isCoach() && resource.data.coachId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Coach Salary Settings (Admin only, but coach can read own)
+    match /coach_salary_settings/{coachId} {
+      allow read: if isCoach() && coachId == request.auth.uid;
+      allow read, write: if isAdmin();
+    }
+
+    // Coach Salary Payments (Admin only, but coach can read own)
+    match /coach_salary_payments/{paymentId} {
+      allow read: if isCoach() && resource.data.coachId == request.auth.uid;
+      allow read, write: if isAdmin();
+    }
+  }
+}
