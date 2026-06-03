@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Users, UserCheck, UserMinus, CreditCard, Home, PlusCircle,
   ClipboardCheck, Wallet, TrendingUp, Search, Clock,
-  IndianRupee, Loader2, AlertCircle, BarChart2, Shirt, Briefcase
+  IndianRupee, Loader2, AlertCircle, BarChart2,
 } from 'lucide-react';
 import { subscribeToStudents } from '../services/studentService';
 import { getAttendanceByDate } from '../services/attendanceService';
@@ -19,6 +19,7 @@ const Dashboard = ({ setActiveTab }) => {
   const { user, loading: authLoading, isAdmin } = useAuth();
   const [students,     setStudents]     = useState([]);
   const [presentToday, setPresentToday] = useState(0);
+  const [absentToday,  setAbsentToday]  = useState(0);
   const [loading,      setLoading]      = useState(true);
 
   // Coach-specific state
@@ -48,6 +49,7 @@ const Dashboard = ({ setActiveTab }) => {
       });
       getAttendanceByDate(today).then(records => {
         setPresentToday(records.filter(r => r.present).length);
+        setAbsentToday(records.filter(r => !r.present).length);
       }).catch(err => setErrorMsg(err.message));
       return () => unsub();
     } catch (err) {
@@ -91,8 +93,6 @@ const Dashboard = ({ setActiveTab }) => {
   const hostelersCount  = useMemo(() =>
     activeStudents.filter(s => s.hostelType === 'Hosteler' || s.type === 'Hosteler').length,
     [activeStudents]);
-  const dressGivenCount = useMemo(() => activeStudents.filter(s => s.dressGiven).length, [activeStudents]);
-  const kitGivenCount   = useMemo(() => activeStudents.filter(s => s.kitGiven).length, [activeStudents]);
 
   const pendingRevenue  = useMemo(() => calcTotalPendingRevenue(activeStudents),    [activeStudents]);
   const expectedRevenue = useMemo(() => calcExpectedMonthlyRevenue(activeStudents), [activeStudents]);
@@ -132,7 +132,7 @@ const Dashboard = ({ setActiveTab }) => {
       >
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">
-            {isUserAdmin ? `Hello Bally Sir 👋` : `Hey, ${displayName}! 👋`}
+            {isUserAdmin ? 'Hi JP Sir 👋' : 'Hi Coach 👋'}
           </h1>
           <p className="text-gray-400 text-[10px] md:text-sm uppercase tracking-wider">{todayLabel}</p>
           {isSunday && isUserAdmin && (
@@ -203,7 +203,7 @@ const Dashboard = ({ setActiveTab }) => {
           <div>
             <p className="text-gray-400 text-[10px] md:text-xs font-medium">Absent</p>
             <h3 className="text-xl md:text-2xl font-bold text-white">
-              {activeStudents.length - presentToday}
+              {absentToday}
             </h3>
           </div>
         </motion.div>
@@ -236,28 +236,6 @@ const Dashboard = ({ setActiveTab }) => {
               <div>
                 <p className="text-gray-400 text-[10px] md:text-xs font-medium">Hostel</p>
                 <h3 className="text-xl md:text-2xl font-bold text-white">{hostelersCount}</h3>
-              </div>
-            </motion.div>
-
-            {/* Dress Issued */}
-            <motion.div variants={itemVariants} className="glass rounded-3xl p-4 md:p-5 flex flex-col justify-between aspect-square">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-500/10 rounded-xl flex items-center justify-center mb-2">
-                <Shirt size={18} className="text-purple-500" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-[10px] md:text-xs font-medium">Dress Issued</p>
-                <h3 className="text-xl md:text-2xl font-bold text-white">{dressGivenCount}</h3>
-              </div>
-            </motion.div>
-
-            {/* Kit Issued */}
-            <motion.div variants={itemVariants} className="glass rounded-3xl p-4 md:p-5 flex flex-col justify-between aspect-square">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-teal-500/10 rounded-xl flex items-center justify-center mb-2">
-                <Briefcase size={18} className="text-teal-500" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-[10px] md:text-xs font-medium">Kit Issued</p>
-                <h3 className="text-xl md:text-2xl font-bold text-white">{kitGivenCount}</h3>
               </div>
             </motion.div>
           </>

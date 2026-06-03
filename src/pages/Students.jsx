@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, Plus, ChevronRight, MapPin, Home, CreditCard, X, Loader2, Download } from 'lucide-react';
 import { subscribeToStudents, addStudent } from '../services/studentService';
 import { exportData, formatStudentsForExport } from '../lib/exportUtils';
-import { calcPendingMonths } from '../lib/feeCalculations';
+import { calcPendingMonths, calcDueAmount } from '../lib/feeCalculations';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 import Avatar from '../components/Avatar';
@@ -22,9 +22,9 @@ const Students = ({ onSelectStudent }) => {
     address: '', hostelType: 'Local', joiningDate: '', leavingDate: '',
     assignedCoachId: '', batchId: '',
     totalFees: '', feesPaid: '',
-    monthlyFees: '', totalMonthsPaid: '0',
-    dressGiven: false, kitGiven: false, impStudent: false, status: 'active',
-    gender: 'boy'
+    monthlyFees: '',
+    dressGiven: false, kitGiven: false, status: 'active',
+    gender: 'boy', impStudent: false
   });
 
   const filters = ['All', 'Active', 'Hosteler', 'Local', 'Fees Due', 'Paid', 'Important'];
@@ -78,11 +78,12 @@ const Students = ({ onSelectStudent }) => {
     try {
       await addStudent({
         ...form,
+        fullName:        form.fullName || '',
         totalFees:       Number(form.totalFees)       || 0,
         feesPaid:        Number(form.feesPaid)        || 0,
         monthlyFees:     Number(form.monthlyFees)     || 0,
-        totalMonthsPaid: Number(form.totalMonthsPaid) || 0,
         joinDate:        form.joiningDate || '',
+        joiningDate:     form.joiningDate || '',
       });
       setShowModal(false);
       setForm({
@@ -90,9 +91,9 @@ const Students = ({ onSelectStudent }) => {
         address: '', hostelType: 'Local', joiningDate: '', leavingDate: '',
         assignedCoachId: '', batchId: '',
         totalFees: '', feesPaid: '',
-        monthlyFees: '', totalMonthsPaid: '0',
-        dressGiven: false, kitGiven: false, impStudent: false, status: 'active',
-        gender: 'boy'
+        monthlyFees: '',
+        dressGiven: false, kitGiven: false, status: 'active',
+        gender: 'boy', impStudent: false
       });
     } catch (err) {
       console.error('Error adding student:', err);
@@ -159,8 +160,8 @@ const Students = ({ onSelectStudent }) => {
         ) : (
           <AnimatePresence mode='popLayout'>
             {filteredStudents.map((student) => {
-              const feesDue   = student.feesDue || 0;
-              const feeStatus = student.feeStatus || (feesDue > 0 ? 'Due' : 'Paid');
+              const dueAmount = calcDueAmount(student);
+              const feeStatus = dueAmount > 0 ? 'Due' : 'Paid';
               const type      = student.hostelType || student.type || 'Local';
               const name      = student.fullName   || student.name || 'Student';
               const mobile    = student.contactNumber || student.mobile || '';
@@ -191,10 +192,7 @@ const Students = ({ onSelectStudent }) => {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-bold text-sm md:text-base truncate flex items-center gap-2">
-                      {name}
-                      {student.impStudent && <span className="text-amber-500 text-lg">★</span>}
-                    </h3>
+                    <h3 className="text-white font-bold text-sm md:text-base truncate">{name}</h3>
                     <p className="text-[9px] md:text-[10px] text-gray-500 mb-1">{mobile || 'No Mobile'}</p>
                     <div className="flex items-center gap-2 md:gap-3 mt-0.5">
                       <div className="flex items-center gap-1 text-[9px] md:text-[10px] text-gray-400">
@@ -208,7 +206,21 @@ const Students = ({ onSelectStudent }) => {
                     </div>
                   </div>
 
-                  <ChevronRight className="text-gray-700 flex-shrink-0" size={18} />
+                  <div className="flex flex-col items-end flex-shrink-0 gap-1">
+                    {(() => {
+                      const dueAmount = calcDueAmount(student);
+                      const pendingMonths = calcPendingMonths(student);
+                      if (dueAmount > 0) {
+                        return (
+                          <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-lg border border-red-400/20 text-right">
+                            {pendingMonths > 0 ? `${pendingMonths} month${pendingMonths > 1 ? 's' : ''} • ` : ''}₹{dueAmount.toLocaleString()} Due
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <ChevronRight className="text-gray-700" size={18} />
+                  </div>
                 </motion.div>
               );
             })}
@@ -271,16 +283,17 @@ const Students = ({ onSelectStudent }) => {
                         name="monthlyFees"
                         value={form.monthlyFees}
                         onChange={handleChange}
+                        required
                         className="w-full bg-navy-800 border border-white/5 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-accent/50"
                         placeholder="e.g. 1000"
                       />
                     </div>
                     <div>
-                      <label className="text-gray-400 text-xs font-medium block mb-1">Months Already Paid</label>
+                      <label className="text-gray-400 text-xs font-medium block mb-1">Initial Amount Paid (₹)</label>
                       <input
                         type="number"
-                        name="totalMonthsPaid"
-                        value={form.totalMonthsPaid}
+                        name="feesPaid"
+                        value={form.feesPaid}
                         onChange={handleChange}
                         min="0"
                         className="w-full bg-navy-800 border border-white/5 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-accent/50"
@@ -296,7 +309,7 @@ const Students = ({ onSelectStudent }) => {
                   { label: 'Contact Number',       name: 'contactNumber',    type: 'tel',    required: false },
                   { label: 'Date of Birth',        name: 'dateOfBirth',      type: 'date',   required: false },
                   { label: 'Address',              name: 'address',          type: 'text',   required: false },
-                  { label: 'Joining Date *',       name: 'joiningDate',      type: 'date',   required: true },
+                  { label: 'Joining Date * (calc due)', name: 'joiningDate', type: 'date',   required: true  },
                   { label: 'Leaving Date',         name: 'leavingDate',      type: 'date',   required: false },
                   { label: 'Coach ID / Name',      name: 'assignedCoachId',  type: 'text',   required: false },
                   { label: 'Batch ID',             name: 'batchId',          type: 'text',   required: false },
@@ -340,40 +353,40 @@ const Students = ({ onSelectStudent }) => {
                   </select>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="dressGiven"
-                      name="dressGiven"
-                      checked={form.dressGiven}
-                      onChange={handleChange}
-                      className="w-4 h-4 accent-amber-500 rounded"
-                    />
-                    <label htmlFor="dressGiven" className="text-gray-300 text-sm">Dress</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="kitGiven"
-                      name="kitGiven"
-                      checked={form.kitGiven}
-                      onChange={handleChange}
-                      className="w-4 h-4 accent-amber-500 rounded"
-                    />
-                    <label htmlFor="kitGiven" className="text-gray-300 text-sm">Kit</label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="impStudent"
-                      name="impStudent"
-                      checked={form.impStudent}
-                      onChange={handleChange}
-                      className="w-4 h-4 accent-amber-500 rounded border-amber-500"
-                    />
-                    <label htmlFor="impStudent" className="text-amber-500 font-bold text-sm">Important</label>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="dressGiven"
+                    name="dressGiven"
+                    checked={form.dressGiven}
+                    onChange={handleChange}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <label htmlFor="dressGiven" className="text-gray-300 text-sm">Dress Given</label>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="kitGiven"
+                    name="kitGiven"
+                    checked={form.kitGiven}
+                    onChange={handleChange}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <label htmlFor="kitGiven" className="text-gray-300 text-sm">Kit Given</label>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="impStudent"
+                    name="impStudent"
+                    checked={form.impStudent}
+                    onChange={handleChange}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <label htmlFor="impStudent" className="text-gray-300 text-sm font-bold">Important Student</label>
                 </div>
 
                 <button

@@ -10,63 +10,45 @@ import {
   serverTimestamp,
   updateDoc,
   deleteDoc,
-  increment,
 } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
-import { updateStudent } from './studentService';
 
 const COLLECTION = 'payments';
 
 /**
- * Record a payment and auto-update the student's fee fields.
- * Supports both new (monthsPaid) and legacy (amount-based) models.
+ * Record a payment and auto-update the student's feesPaid cache.
  *
  * @param {object} paymentData
  * @param {string}  paymentData.studentId
  * @param {number}  paymentData.amount         - ₹ amount paid
- * @param {number}  [paymentData.monthsPaid]   - number of months being cleared (new model)
  * @param {string}  paymentData.paymentDate
  * @param {string}  paymentData.paymentMode    - Cash | UPI | Bank Transfer | Cheque
  * @param {string}  [paymentData.remarks]
  * @param {string}  [paymentData.receivedBy]
  */
 export const addPayment = async (paymentData) => {
-  const amount     = Number(paymentData.amount)     || 0;
-  const monthsPaid = Number(paymentData.monthsPaid) || 0;
+  const amount = Number(paymentData.amount) || 0;
 
   // Save the payment record
   const ref = await addDoc(collection(db, COLLECTION), {
     ...paymentData,
     amount,
-    monthsPaid,
     createdAt: serverTimestamp(),
   });
 
-  // Update the student document
-  if (paymentData.studentId) {
+  // Update the student document feesPaid cache
+  if (paymentData.studentId && amount > 0) {
     const studentRef  = doc(db, 'students', paymentData.studentId);
     const studentSnap = await getDoc(studentRef);
 
     if (studentSnap.exists()) {
       const studentData = studentSnap.data();
-      const updates     = {};
-
-      // --- New model: increment totalMonthsPaid ---
-      if (monthsPaid > 0) {
-        updates.totalMonthsPaid = (Number(studentData.totalMonthsPaid) || 0) + monthsPaid;
-      }
-
-      // --- Legacy model: increment feesPaid, recalc feesDue ---
-      if (amount > 0) {
-        const currentPaid  = Number(studentData.feesPaid)  || 0;
-        const totalFees    = Number(studentData.totalFees)  || 0;
-        const newPaid      = currentPaid + amount;
-        updates.feesPaid   = newPaid;
-        updates.feesDue    = Math.max(0, totalFees - newPaid);
-        updates.lastPayment = paymentData.paymentDate || new Date().toISOString().split('T')[0];
-      }
-
-      await updateDoc(studentRef, updates);
+      const currentPaid = Number(studentData.feesPaid) || 0;
+      
+      await updateDoc(studentRef, {
+        feesPaid: currentPaid + amount,
+        lastPayment: paymentData.paymentDate || new Date().toISOString().split('T')[0]
+      });
     }
   }
 
@@ -134,24 +116,27 @@ export const getMonthlyCollectedTrend = async (months = 6) => {
 
 /**
  * Edit an existing payment record.
- * If monthsPaid changes, the delta is applied to student's totalMonthsPaid.
+ * Adjusts the student's feesPaid cache by the delta.
  */
 export const updatePayment = async (paymentId, updates, oldPayment) => {
   const payRef = doc(db, COLLECTION, paymentId);
   await updateDoc(payRef, { ...updates, updatedAt: serverTimestamp() });
 
-  // Adjust student's totalMonthsPaid if monthsPaid changed
-  if (oldPayment?.studentId && updates.monthsPaid !== undefined) {
-    const oldMonths = Number(oldPayment.monthsPaid) || 0;
-    const newMonths = Number(updates.monthsPaid) || 0;
-    const delta = newMonths - oldMonths;
-    if (delta !== 0) {
-      const studentRef = doc(db, 'students', oldPayment.studentId);
-      const snap = await getDoc(studentRef);
-      if (snap.exists()) {
-        const current = Number(snap.data().totalMonthsPaid) || 0;
+  // Adjust student fields if payment amount changed
+  if (oldPayment?.studentId && updates.amount !== undefined) {
+    const studentRef = doc(db, 'students', oldPayment.studentId);
+    const snap = await getDoc(studentRef);
+    
+    if (snap.exists()) {
+      const studentData = snap.data();
+      const oldAmount = Number(oldPayment.amount) || 0;
+      const newAmount = Number(updates.amount) || 0;
+      const amountDelta = newAmount - oldAmount;
+      
+      if (amountDelta !== 0) {
+        const currentPaid = Number(studentData.feesPaid) || 0;
         await updateDoc(studentRef, {
-          totalMonthsPaid: Math.max(0, current + delta),
+           feesPaid: Math.max(0, currentPaid + amountDelta)
         });
       }
     }
@@ -159,18 +144,22 @@ export const updatePayment = async (paymentId, updates, oldPayment) => {
 };
 
 /**
- * Permanently delete a payment and reverse the student's totalMonthsPaid.
+ * Permanently delete a payment and reverse the student's feesPaid cache.
  */
 export const deletePayment = async (paymentId, oldPayment) => {
   await deleteDoc(doc(db, COLLECTION, paymentId));
 
-  if (oldPayment?.studentId && (oldPayment.monthsPaid || 0) > 0) {
+  if (oldPayment?.studentId && (oldPayment.amount || 0) > 0) {
     const studentRef = doc(db, 'students', oldPayment.studentId);
     const snap = await getDoc(studentRef);
+    
     if (snap.exists()) {
-      const current = Number(snap.data().totalMonthsPaid) || 0;
+      const studentData = snap.data();
+      const currentPaid = Number(studentData.feesPaid) || 0;
+      const amountToRemove = Number(oldPayment.amount) || 0;
+      
       await updateDoc(studentRef, {
-        totalMonthsPaid: Math.max(0, current - (Number(oldPayment.monthsPaid) || 0)),
+        feesPaid: Math.max(0, currentPaid - amountToRemove)
       });
     }
   }

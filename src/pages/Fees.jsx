@@ -17,6 +17,7 @@ import {
   getSeverityBorderClass, getSeverityBadgeClass, getSeverityLabel,
   sortByOverdue, sortByDueAmount, sortByNewest,
   calcTotalPendingRevenue, calcExpectedMonthlyRevenue, formatCurrency,
+  getStudentBalance,
 } from '../lib/feeCalculations';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -60,7 +61,7 @@ const Fees = () => {
   const [selStudent,   setSelStudent]   = useState(null);
   const [payHistory,   setPayHistory]   = useState([]);
   const [payForm,      setPayForm]      = useState({
-    monthsPaid: '', amount: '', paymentDate: '', paymentMode: 'Cash', remarks: '',
+    amount: '', paymentDate: '', paymentMode: 'Cash', remarks: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -172,16 +173,11 @@ const Fees = () => {
     setShowPayModal(true);
     const history = await getPaymentsByStudent(student.studentId);
     setPayHistory(history);
-    // Pre-fill amount from monthly fees
-    const mf = Number(student.monthlyFees) || 0;
-    setPayForm({ monthsPaid: '1', amount: String(mf), paymentDate: '', paymentMode: 'Cash', remarks: '' });
+    // Pre-fill amount from balance
+    const balance = getStudentBalance(student);
+    let amountToFill = balance.dueAmount > 0 ? balance.dueAmount : (Number(student.monthlyFees) || 0);
+    setPayForm({ amount: String(amountToFill), paymentDate: '', paymentMode: 'Cash', remarks: '' });
   }, []);
-
-  const handleMonthsChange = useCallback((months) => {
-    const mf  = Number(selStudent?.monthlyFees) || 0;
-    const amt = mf > 0 ? String(mf * Number(months || 0)) : '';
-    setPayForm(p => ({ ...p, monthsPaid: months, amount: amt }));
-  }, [selStudent]);
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -191,7 +187,6 @@ const Fees = () => {
       await addPayment({
         studentId:   selStudent.studentId,
         amount:      Number(payForm.amount),
-        monthsPaid:  Number(payForm.monthsPaid) || 0,
         paymentDate: payForm.paymentDate || new Date().toISOString().split('T')[0],
         paymentMode: payForm.paymentMode,
         remarks:     payForm.remarks,
@@ -199,7 +194,9 @@ const Fees = () => {
       });
       const history = await getPaymentsByStudent(selStudent.studentId);
       setPayHistory(history);
-      setPayForm({ monthsPaid: '', amount: '', paymentDate: '', paymentMode: 'Cash', remarks: '' });
+      setPayForm({ amount: '', paymentDate: '', paymentMode: 'Cash', remarks: '' });
+      setShowPayModal(false);
+      setSelStudent(null);
     } catch (err) {
       console.error('Payment error:', err);
       alert('Payment failed. Please try again.');
@@ -225,7 +222,7 @@ const Fees = () => {
   const handleExcelExport = () => {
     const dueActive = activeStudents.filter(s => calcPendingMonths(s) > 0);
     if (dueActive.length === 0) { alert('No due students found.'); return; }
-    exportData(formatDueFeesForExport(dueActive), 'Due_Fees_List_Bally', 'xlsx');
+    exportData(formatDueFeesForExport(dueActive), 'Due_Fees_List_JP', 'xlsx');
   };
 
   // ── Restore / Remove / Permanent Delete ────────────────────────────
@@ -251,17 +248,16 @@ const Fees = () => {
   };
 
   // ── Edit payment ───────────────────────────────────────────────────
-  const openEditPay = (payment) => {
+  const openEditPay = useCallback((payment) => {
     setEditingPay(payment);
     setEditPayForm({
       amount:      String(payment.amount || ''),
-      monthsPaid:  String(payment.monthsPaid || ''),
       paymentDate: payment.paymentDate || '',
       paymentMode: payment.paymentMode || 'Cash',
       remarks:     payment.remarks || '',
     });
     setEditPayModal(true);
-  };
+  }, []);
 
   const handleEditPay = async (e) => {
     e.preventDefault();
@@ -272,7 +268,6 @@ const Fees = () => {
         editingPay.paymentId,
         {
           amount:      Number(editPayForm.amount),
-          monthsPaid:  Number(editPayForm.monthsPaid),
           paymentDate: editPayForm.paymentDate,
           paymentMode: editPayForm.paymentMode,
           remarks:     editPayForm.remarks,
@@ -293,7 +288,7 @@ const Fees = () => {
   };
 
   const handleDeletePay = async (payment) => {
-    if (!window.confirm('Delete this payment record? This will reverse the months paid on the student.')) return;
+    if (!window.confirm('Delete this payment record?')) return;
     try {
       await deletePayment(payment.paymentId, payment);
       const history = await getPaymentsByStudent(selStudent.studentId);
@@ -615,8 +610,8 @@ const Fees = () => {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Monthly Fee', val: `₹${(Number(currentStudent?.monthlyFees) || 0).toLocaleString()}`, color: 'text-white' },
-                    { label: 'Months Paid', val: String(Number(currentStudent?.totalMonthsPaid) || 0),              color: 'text-emerald-400' },
-                    { label: 'Months Due',  val: String(currentPending),                                            color: currentPending > 0 ? 'text-red-400' : 'text-emerald-400' },
+                    { label: 'Total Paid', val: `₹${(Number(currentStudent?.feesPaid) || 0).toLocaleString()}`,     color: 'text-emerald-400' },
+                    { label: 'Net Balance',  val: getStudentBalance(currentStudent).netBalance > 0 ? `₹${getStudentBalance(currentStudent).dueAmount.toLocaleString()}` : `₹${getStudentBalance(currentStudent).advanceAmount.toLocaleString()} Adv`, color: getStudentBalance(currentStudent).netBalance > 0 ? 'text-red-400' : 'text-emerald-400' },
                   ].map(({ label, val, color }) => (
                     <div key={label} className="glass rounded-2xl p-3 text-center">
                       <p className="text-gray-500 text-[9px] uppercase font-bold mb-1">{label}</p>
@@ -626,44 +621,23 @@ const Fees = () => {
                 </div>
 
                 {/* Due amount highlight */}
-                {currentPending > 0 && (
+                {getStudentBalance(currentStudent).netBalance !== 0 && (
                   <div className={cn(
                     'rounded-2xl p-3 border flex items-center justify-between',
                     getSeverityBadgeClass(currentSeverity).replace('bg-', 'bg-').replace('/15', '/10')
                   )}>
                     <div>
-                      <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Total Due Amount</p>
-                      <p className="text-xl font-black mt-0.5">₹{currentDue.toLocaleString()}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-wider opacity-70">Total {getStudentBalance(currentStudent).netBalance > 0 ? 'Due' : 'Advance'} Amount</p>
+                      <p className="text-xl font-black mt-0.5">₹{getStudentBalance(currentStudent).netBalance > 0 ? getStudentBalance(currentStudent).dueAmount.toLocaleString() : getStudentBalance(currentStudent).advanceAmount.toLocaleString()}</p>
                     </div>
                     <span className={cn('text-[9px] font-black px-2.5 py-1 rounded-full', getSeverityBadgeClass(currentSeverity))}>
-                      {getSeverityLabel(currentPending)}
+                      {getSeverityLabel(currentStudent)}
                     </span>
                   </div>
                 )}
 
                 {/* Payment form */}
                 <form onSubmit={handlePay} className="space-y-4">
-                  <div>
-                    <label className="text-gray-400 text-xs font-medium block mb-1">
-                      Months Paying *
-                    </label>
-                    <input
-                      type="number"
-                      value={payForm.monthsPaid}
-                      onChange={e => handleMonthsChange(e.target.value)}
-                      required
-                      min="1"
-                      max="24"
-                      className="w-full bg-navy-800 border border-white/5 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-accent/50"
-                      placeholder="e.g. 2"
-                    />
-                    {payForm.monthsPaid && Number(payForm.monthsPaid) > 0 && Number(currentStudent?.monthlyFees) > 0 && (
-                      <p className="text-accent text-[10px] mt-1 ml-1">
-                        Auto: ₹{(Number(payForm.monthsPaid) * Number(currentStudent.monthlyFees)).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-
                   <div>
                     <label className="text-gray-400 text-xs font-medium block mb-1">Amount (₹) *</label>
                     <input
@@ -738,12 +712,10 @@ const Fees = () => {
                               <p className="text-white text-xs font-bold">₹{(p.amount || 0).toLocaleString()}</p>
                               <p className="text-gray-500 text-[10px]">
                                 {p.paymentDate} • {p.paymentMode}
-                                {p.monthsPaid ? ` • ${p.monthsPaid} month${p.monthsPaid > 1 ? 's' : ''}` : ''}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-emerald-400 text-[9px] font-black bg-emerald-500/10 px-2 py-0.5 rounded-full">PAID</span>
                             <button
                               onClick={() => openEditPay(p)}
                               className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center active:scale-95"
@@ -856,7 +828,6 @@ const Fees = () => {
               <div className="sticky top-0 bg-navy-900/95 backdrop-blur-xl px-6 py-4 border-b border-white/5 flex justify-between items-center z-10">
                 <div>
                   <h2 className="text-white font-bold flex items-center gap-2"><Pencil size={15} className="text-blue-400" /> Edit Payment</h2>
-                  <p className="text-gray-500 text-xs">Update record — months paid will be adjusted</p>
                 </div>
                 <button onClick={() => setEditPayModal(false)} className="w-8 h-8 rounded-full glass flex items-center justify-center text-gray-400">
                   <X size={16} />

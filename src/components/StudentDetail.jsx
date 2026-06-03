@@ -11,12 +11,12 @@ import { softRemoveStudent, deleteStudent, updateStudent } from '../services/stu
 import { getAttendanceByStudent } from '../services/attendanceService';
 import { getPaymentsByStudent, addPayment } from '../services/paymentService';
 import Avatar from './Avatar';
-import { calcPendingMonths, calcDueAmount, getDueSeverity, getSeverityBadgeClass, getSeverityLabel, formatCurrency } from '../lib/feeCalculations';
+import { getStudentBalance, getDueSeverity, getSeverityBadgeClass, getSeverityLabel, formatCurrency } from '../lib/feeCalculations';
 
 const StudentDetail = ({ student: initialStudent, onClose }) => {
   if (!initialStudent) return null;
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, isCoach } = useAuth();
   const [student, setStudent] = useState(initialStudent);
   
   // States for student info
@@ -31,7 +31,7 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
 
   // States for Record Payment Modal
   const [showPayModal, setShowPayModal] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: '', monthsPaid: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'Cash', remarks: '' });
+  const [payForm, setPayForm] = useState({ amount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'Cash', remarks: '' });
   const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
@@ -87,15 +87,15 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
       name: student.name || student.fullName || '',
       contactNumber: student.contactNumber || student.mobile || '',
       monthlyFees: student.monthlyFees || 0,
-      totalMonthsPaid: student.totalMonthsPaid || 0,
+      feesPaid: student.feesPaid || 0,
+
       batchId: student.batchId || '',
       assignedCoachId: student.assignedCoachId || student.coach || '',
       hostelType: student.hostelType || student.type || 'Local',
-      joiningDate: student.joiningDate || '',
+      joiningDate: student.joiningDate || student.joinDate || '',
       leavingDate: student.leavingDate || '',
       dressGiven: student.dressGiven || false,
       kitGiven: student.kitGiven || false,
-      impStudent: student.impStudent || false,
     });
     setIsEditing(true);
   };
@@ -105,17 +105,21 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
     try {
       const updates = {
         name: editForm.name,
+        fullName: editForm.name, // Ensure list view updates since it prioritizes fullName
         contactNumber: editForm.contactNumber,
+        mobile: editForm.contactNumber, // Sync legacy mobile field just in case
         monthlyFees: Number(editForm.monthlyFees),
-        totalMonthsPaid: Number(editForm.totalMonthsPaid),
+        feesPaid: Number(editForm.feesPaid),
+
         batchId: editForm.batchId,
         assignedCoachId: editForm.assignedCoachId,
+        coach: editForm.assignedCoachId, // Sync legacy coach field
         hostelType: editForm.hostelType,
         joiningDate: editForm.joiningDate,
+        joinDate: editForm.joiningDate, // Ensure calc functions using joinDate get the update
         leavingDate: editForm.leavingDate,
         dressGiven: editForm.dressGiven,
         kitGiven: editForm.kitGiven,
-        impStudent: editForm.impStudent,
       };
       await updateStudent(student.studentId, updates);
       setStudent(prev => ({ ...prev, ...updates }));
@@ -136,24 +140,23 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
       await addPayment({
         studentId: student.studentId,
         amount: Number(payForm.amount),
-        monthsPaid: Number(payForm.monthsPaid) || 0,
         paymentDate: payForm.paymentDate,
         paymentMode: payForm.paymentMode,
         remarks: payForm.remarks,
       });
       // Adjust local state immediately to avoid reload
-      const addedMonths = Number(payForm.monthsPaid) || 0;
-      if (addedMonths > 0) {
+      const addedAmount = Number(payForm.amount) || 0;
+      if (addedAmount > 0) {
         setStudent(prev => ({
           ...prev,
-          totalMonthsPaid: (Number(prev.totalMonthsPaid) || 0) + addedMonths
+          feesPaid: (Number(prev.feesPaid) || 0) + addedAmount
         }));
       }
       
       const newPayRecords = await getPaymentsByStudent(student.studentId);
       setPayments(newPayRecords);
       setShowPayModal(false);
-      setPayForm({ amount: '', monthsPaid: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'Cash', remarks: '' });
+      setPayForm({ amount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'Cash', remarks: '' });
     } catch (err) {
       console.error(err);
       alert('Payment failed.');
@@ -182,9 +185,6 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
   };
 
   const calendarDays = getCalendarDays();
-  const pendingMonths = calcPendingMonths(student);
-  const dueAmount     = calcDueAmount(student);
-  const severity      = getDueSeverity(pendingMonths);
 
   return (
     <motion.div
@@ -200,7 +200,7 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
           <X size={20} />
         </button>
         <h2 className="text-white font-bold">Student Profile</h2>
-        {isAdmin() ? (
+        {isCoach() ? (
           <div className="flex gap-2">
             {!isEditing && (
               <button onClick={startEdit} className="w-10 h-10 rounded-full glass flex items-center justify-center text-blue-400">
@@ -234,10 +234,7 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
               className="text-2xl font-bold text-center bg-navy-800 border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-accent"
             />
           ) : (
-            <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
-              {student.name || student.fullName}
-              {student.impStudent && <span className="text-amber-500 text-2xl">★</span>}
-            </h1>
+            <h1 className="text-2xl font-bold text-white mb-1">{student.name || student.fullName}</h1>
           )}
 
           {isEditing ? (
@@ -284,11 +281,12 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
               </div>
               <div>
                 <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Monthly Fee (₹)</label>
-                <input type="number" value={editForm.monthlyFees} onChange={e => setEditForm(f => ({ ...f, monthlyFees: e.target.value }))} className="w-full bg-navy-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
-              </div>
-              <div>
-                <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Total Months Paid</label>
-                <input type="number" value={editForm.totalMonthsPaid} onChange={e => setEditForm(f => ({ ...f, totalMonthsPaid: e.target.value }))} className="w-full bg-navy-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+                <input type="number" value={editForm.monthlyFees} onChange={e => {
+                   if (e.target.value !== String(editForm.monthlyFees) && Number(editForm.monthlyFees) !== 0) {
+                      if (!window.confirm("WARNING: Changing the monthly fee will retroactively recalculate the student's entire fee history. Proceed?")) return;
+                   }
+                   setEditForm(f => ({ ...f, monthlyFees: e.target.value }));
+                }} className="w-full bg-navy-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
               </div>
               <div>
                 <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Hostel Type</label>
@@ -301,23 +299,28 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
                 <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Joining Date</label>
                 <input type="date" value={editForm.joiningDate} onChange={e => setEditForm(f => ({ ...f, joiningDate: e.target.value }))} className="w-full bg-navy-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
               </div>
+              <div>
+                <label className="text-[10px] text-gray-400 font-bold uppercase mb-1 block">Total Paid (₹)</label>
+                <input type="number" value={editForm.feesPaid} onChange={e => {
+                   if (e.target.value !== String(editForm.feesPaid) && Number(editForm.feesPaid) !== 0) {
+                      if (!window.confirm("WARNING: Manually editing Total Paid will permanently alter the student's due calculations. Proceed?")) return;
+                   }
+                   setEditForm(f => ({ ...f, feesPaid: e.target.value }));
+                }} className="w-full bg-navy-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white" />
+              </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-6 py-2 border-t border-white/10">
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="editDress" checked={editForm.dressGiven} onChange={e => setEditForm(f => ({ ...f, dressGiven: e.target.checked }))} className="w-4 h-4 accent-amber-500 rounded" />
-                <label htmlFor="editDress" className="text-xs text-white">Dress Given</label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="editKit" checked={editForm.kitGiven} onChange={e => setEditForm(f => ({ ...f, kitGiven: e.target.checked }))} className="w-4 h-4 accent-amber-500 rounded" />
-                <label htmlFor="editKit" className="text-xs text-white">Kit Given</label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="editImp" checked={editForm.impStudent} onChange={e => setEditForm(f => ({ ...f, impStudent: e.target.checked }))} className="w-4 h-4 accent-amber-500 rounded" />
-                <label htmlFor="editImp" className="text-xs font-bold text-amber-500">Important</label>
-              </div>
+            {/* Checkboxes in edit mode */}
+            <div className="flex items-center gap-6 mt-2">
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input type="checkbox" checked={editForm.dressGiven} onChange={e => setEditForm(f => ({ ...f, dressGiven: e.target.checked }))} className="w-4 h-4 accent-accent" />
+                Dress Given
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input type="checkbox" checked={editForm.kitGiven} onChange={e => setEditForm(f => ({ ...f, kitGiven: e.target.checked }))} className="w-4 h-4 accent-accent" />
+                Kit Given
+              </label>
             </div>
-
             <div className="flex gap-2 pt-2">
               <button onClick={() => setIsEditing(false)} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-3 rounded-xl transition-all">Cancel</button>
               <button onClick={saveEdit} disabled={isSaving} className="flex-1 bg-accent text-navy-900 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
@@ -336,7 +339,7 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
                   <p className="text-gray-500 text-[10px] uppercase font-bold mb-1.5">Joining Date</p>
                   <div className="flex items-center gap-2 text-white font-bold">
                     <Calendar size={14} className="text-accent" />
-                    <span className="text-xs">{student.joiningDate || '—'}</span>
+                    <span className="text-xs">{student.joiningDate || student.joinDate || '—'}</span>
                   </div>
                 </div>
                 <div className="h-8 w-px bg-white/10 mx-2" />
@@ -361,21 +364,24 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
                   <span className="text-xs">{student.batchId || '—'}</span>
                 </div>
               </div>
-              
-              <div className="glass p-4 rounded-3xl col-span-2">
-                <p className="text-gray-500 text-[10px] uppercase font-bold mb-3">Equipment & Status</p>
-                <div className="flex gap-6">
+
+              {/* Kit & Dress Status */}
+              <div className="glass p-4 rounded-3xl col-span-2 flex justify-between items-center px-6">
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase font-bold mb-1.5">Dress Status</p>
                   <div className="flex items-center gap-2">
-                    {student.dressGiven ? <CheckCircle2 size={16} className="text-green-500"/> : <X size={16} className="text-gray-600"/>}
-                    <span className="text-white text-xs">Dress</span>
+                    <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${student.dressGiven ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                      {student.dressGiven ? 'Issued' : 'Pending'}
+                    </span>
                   </div>
+                </div>
+                <div className="h-8 w-px bg-white/10 mx-2" />
+                <div className="text-right flex flex-col items-end">
+                  <p className="text-gray-500 text-[10px] uppercase font-bold mb-1.5">Kit Status</p>
                   <div className="flex items-center gap-2">
-                    {student.kitGiven ? <CheckCircle2 size={16} className="text-green-500"/> : <X size={16} className="text-gray-600"/>}
-                    <span className="text-white text-xs">Kit</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {student.impStudent ? <CheckCircle2 size={16} className="text-amber-500"/> : <X size={16} className="text-gray-600"/>}
-                    <span className="text-white text-xs">Important</span>
+                    <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${student.kitGiven ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                      {student.kitGiven ? 'Issued' : 'Pending'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -390,22 +396,28 @@ const StudentDetail = ({ student: initialStudent, onClose }) => {
                       <p className="text-white text-xs font-bold mt-1">₹{(Number(student.monthlyFees)||0).toLocaleString()}</p>
                     </div>
                     <div className="bg-navy-800/60 p-2.5 rounded-xl text-center">
-                      <p className="text-gray-600 text-[8px] uppercase font-bold">Months Paid</p>
-                      <p className="text-emerald-400 text-xs font-bold mt-1">{Number(student.totalMonthsPaid)||0}</p>
+                      <p className="text-gray-600 text-[8px] uppercase font-bold">Total Paid</p>
+                      <p className="text-emerald-400 text-xs font-bold mt-1">₹{(Number(student.feesPaid)||0).toLocaleString()}</p>
                     </div>
                     <div className="bg-navy-800/60 p-2.5 rounded-xl text-center">
-                      <p className="text-gray-600 text-[8px] uppercase font-bold">Months Due</p>
-                      <p className={`text-xs font-bold mt-1 ${pendingMonths > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{pendingMonths}</p>
+                      <p className="text-gray-600 text-[8px] uppercase font-bold">Net Balance</p>
+                      <p className={`text-xs font-bold mt-1 ${getStudentBalance(student).netBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                         {getStudentBalance(student).netBalance > 0 ? `₹${getStudentBalance(student).netBalance.toLocaleString()}` : (getStudentBalance(student).netBalance < 0 ? `₹${Math.abs(getStudentBalance(student).netBalance).toLocaleString()} Adv` : '₹0')}
+                      </p>
                     </div>
                   </div>
-                  {pendingMonths > 0 && (
-                    <div className={`rounded-xl p-3 border flex items-center justify-between ${getSeverityBadgeClass(severity)}`}>
+                  {getStudentBalance(student).netBalance !== 0 && (
+                    <div className={`rounded-xl p-3 border flex items-center justify-between ${getSeverityBadgeClass(getDueSeverity(student))}`}>
                       <div>
-                        <p className="text-sm font-black">₹{dueAmount.toLocaleString()} Due</p>
-                        <p className="text-[10px] font-bold opacity-80 mt-0.5">Please record payment to clear dues</p>
+                        <p className="text-sm font-black">
+                           {getStudentBalance(student).netBalance > 0 ? `₹${getStudentBalance(student).dueAmount.toLocaleString()} Due` : `₹${getStudentBalance(student).advanceAmount.toLocaleString()} Advance`}
+                        </p>
+                        <p className="text-[10px] font-bold opacity-80 mt-0.5">
+                           {getStudentBalance(student).netBalance > 0 ? 'Please record payment to clear dues' : 'Student has paid in advance'}
+                        </p>
                       </div>
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${getSeverityBadgeClass(severity)}`}>
-                        {getSeverityLabel(pendingMonths)}
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${getSeverityBadgeClass(getDueSeverity(student))}`}>
+                        {getSeverityLabel(student)}
                       </span>
                     </div>
                   )}
